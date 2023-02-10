@@ -38,6 +38,10 @@ def readData(DataCSV, ACodesCSV):
                                           'FacilityRange', 'FacilityMeridian','FromToIDProvinceState', 'FromToIDType', 'FromToIDIdentifier',
                                           'Hours', 'ProrationProduct', 'ProrationFactor', 'Heat'])
     
+    # merge the two dataframes
+    plantData = pd.merge(plantData, plant_AC, on= 'ActivityID')
+    print("Data has been merged\n")
+    
     return plantData
 
 
@@ -61,9 +65,6 @@ def preprocessColumns(plantData):
     plantData["Volume"] = pd.to_numeric(plantData["Volume"])
     print("Volume data has been converted to float\n")
     
-    # merge the two dataframes
-    plantData = pd.merge(plantData, plant_AC, on= 'ActivityID')
-    print("Data has been merged\n")
     
     ########################################################################
     # here we remove values that aren't nessecary for the balancing process#
