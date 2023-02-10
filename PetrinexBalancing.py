@@ -5,13 +5,18 @@
 Created on Thurs Jan 19 10:30 am
 @author: joshrainbow
 
-
-edited on Thursday Jan 26 10:30 am
-@author: joshrainbow
-
 changes include:
 - optimized code for not only balancing BTG plant data but also for balancing any data in the province 
 - added in the new balancing factors to complete the list from Bob
+
+edited on Friday Feb 10 10:30 am
+@author: joshrainbow
+
+change include:
+- tranfering the code to functions that can be called from the main program
+- if changes need to be made to the code, they can be made in the preprocessColumns function and not in the main program
+
+
 """
 
 import pandas as pd
@@ -33,6 +38,14 @@ def readData(DataCSV, ACodesCSV):
                                           'FacilityRange', 'FacilityMeridian','FromToIDProvinceState', 'FromToIDType', 'FromToIDIdentifier',
                                           'Hours', 'ProrationProduct', 'ProrationFactor', 'Heat'])
     
+    return plantData
+
+
+def preprocessColumns(plantData):
+    ###########################
+    #clean and format the data#
+    ###########################
+    
     # fixing errors in the volume data
     # Relace the commas with empty string
     plantData['Volume'] = plantData['Volume'].str.replace(',','')
@@ -51,20 +64,18 @@ def readData(DataCSV, ACodesCSV):
     # merge the two dataframes
     plantData = pd.merge(plantData, plant_AC, on= 'ActivityID')
     print("Data has been merged\n")
-    return plantData
-
-
-def preprocessColumns(plantData):
+    
     ########################################################################
     # here we remove values that aren't nessecary for the balancing process#
     ########################################################################
     
     # drop the rows where the volume is 0
     plantData = plantData[plantData['Volume'] != 0]
-    # drop the rows where the product is sand
+    
+    # drop the rows where the product is sand - **SAND DOES NOT BALANCE**
     plantData = plantData[plantData['ProductID'] != 'SAND']
     
-    
+    ######################################################################
     # drop the rows where the activity is FLARE and the product is ENTGAS#
     ######################################################################
     
@@ -94,6 +105,7 @@ def preprocessColumns(plantData):
     plantData = plantData[plantData['FLARE&ENTGAS'] != 0]
     print("Data is ready to be balanced\n")
     return plantData
+
 
 def balanceData(plantData):
     # create a new column that is the volume multiplied by the factor
