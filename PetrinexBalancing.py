@@ -146,8 +146,8 @@ def main():
     activityCodesCSV = "activityCodeFactors.csv"
     
     plantData = readData(plantDataCSV, activityCodesCSV)
-    plantData = preprocessColumns(plantData)
-    balanceData(plantData)
+    plantDataPP = preprocessColumns(plantData)
+    balanceData(plantDataPP)
     return 
 
 main()
