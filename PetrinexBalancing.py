@@ -65,6 +65,7 @@ def preprocessColumns(plantData):
     plantData["Volume"] = pd.to_numeric(plantData["Volume"])
     print("Volume data has been converted to float\n")
     
+
     
     ########################################################################
     # here we remove values that aren't nessecary for the balancing process#
@@ -72,45 +73,23 @@ def preprocessColumns(plantData):
     
     # drop the rows where the volume is 0
     plantData = plantData[plantData['Volume'] != 0]
+    print("drpped rows where volume is 0\n")
     
     # drop the rows where the product is sand - **SAND DOES NOT BALANCE**
     plantData = plantData[plantData['ProductID'] != 'SAND']
-    
-    ######################################################################
-    # drop the rows where the activity is FLARE and the product is ENTGAS#
-    ######################################################################
-    
-    activityNull = 'FLARE'
-    productNull = 'ENTGAS'
-    activityID = plantData['ActivityID']
-    productID = plantData['ProductID']
-
-    # List conditions
-    # what were looking for is that if the activityID is FLARE and the productID is ENTGAS, then we want to set the volume to 0
-    conditions = [
-        (activityID == activityNull) & (productID == productNull), # condition 1
-        # other conditions
-        (activityID != activityNull) & (productID != productNull), # condition 2
-        (activityID == activityNull) & (productID != productNull), # condition 3
-        (activityID != activityNull) & (productID == productNull) # condition 4
-    ]
-    # List of values to return
-    choices = [
-        0, # if condition 1 is true
-        1, # if condition 2 is true
-        1, # if condition 3 is true
-        1 # if condition 4 is true
-    ]
-    # create a new column and use np.select to assign values to it using our lists as arguments
-    plantData['FLARE&ENTGAS'] = np.select(conditions, choices, default=0)
-    plantData = plantData[plantData['FLARE&ENTGAS'] != 0]
+    print("drpped rows where product is sand\n")
     print("Data is ready to be balanced\n")
     return plantData
+    
+    
 
 
 def balanceData(plantData):
     # create a new column that is the volume multiplied by the factor
     plantData["Balance"] = plantData["Volume"]*plantData["Factor"]
+    
+    #for i in range(counter - 1):
+    #    plantData = plantData[plantData['NullCombinations' + str(i)] != 0]
     
     # now we can get all the unique ReportingFacilityID and sum up the balance values
     plantIDs = plantData[["ReportingFacilityID", "Balance"]].copy()
@@ -130,25 +109,80 @@ def balanceData(plantData):
     # merge the unbalanced plant data with the balanced plant data
     plantData = pd.merge(plantData, doesNotEqualZero, on= 'ReportingFacilityID')
     
+    return plantData
+
+
+def rebalanceData(plantData):
+    ######################################################################
+    # drop the rows where the activity is FLARE and the product is ENTGAS#
+    ######################################################################
+    
+    # maybe throw a hash map here and then we can group everything in pairs and have it loop through each pair
+    ############ iterate through each activity and product pair and create a new column that is 0 if the activity and product match the pair and 1 if they don't
+    activityList = ['FLARE']
+    productList = ['ENTGAS']
+    activityID = plantData['ActivityID']
+    productID = plantData['ProductID']
+    counter = 0
+    
+    # loop through each activity and product pair
+    for (activity, product) in zip(activityList, productList):
+        # List conditions
+        conditions = [
+            # conditions for combination 'activity * product'
+            (activityID == activity) & (productID == product), # condition 1
+            # other conditions
+            (activityID != activity) & (productID != product), # condition 2
+            (activityID == activity) & (productID != product), # condition 3
+            (activityID != activity) & (productID == product) # condition 4
+        ]
+        # List of values to return
+        choices = [
+            0, # if condition 1 is true
+            1, # if condition 2 is true
+            1, # if condition 3 is true
+            1 # if condition 4 is true
+        ]
+        # create a new column and use np.select to assign values to it using our lists as arguments
+        header = 'NullCombination' + str(counter)
+        plantData[header] = np.select(conditions, choices, default=0)
+        print("\n" + header + " has been created\n")
+        counter += 1
+        
+    # remove the rows where null combination is 0
+    for i in range(counter):
+        header = 'NullCombination' + str(i)
+        plantData = plantData[plantData[header] != 0]
+    # drop Balance and sum_Balance columns to rebalance
+    plantData = plantData.drop(columns=['Balance', 'sum_Balance'])
+    
+    return plantData
+
+
+def exportData(plantData):
     #export to csv 
     # we export all Plant Data for plants that haven't been properly balanced
     month = dt.datetime.now().month
     year = dt.datetime.now().year
-    plantData.to_csv('plantDataUnbalanced' + str(month) + str(year) + '.csv', index=False)
+    date = str(month) + str(year)
+    plantData.to_csv('plantDataUnbalanced' + date + '.csv', index=False)
     print("\nThe Unbalanced Plant Data has been exported to CSV\n")
-    print("Check in the folder for the file named plantDataUnbalanced.csv\n")
+    print("Check in the folder for the file named plantDataUnbalanced" + date + ".csv\n")
     return
 
 def main():
     
     # set the name path to the data
-    plantDataCSV = "ABPlantDataDec22.CSV"
+    plantDataCSV = "Vol_2022-11-AB.CSV"
     activityCodesCSV = "activityCodeFactors.csv"
     
     plantData = readData(plantDataCSV, activityCodesCSV)
     plantDataPP = preprocessColumns(plantData)
-    balanceData(plantDataPP)
+    plantDataB = balanceData(plantDataPP)
+    plantDataB.to_csv('plantDataUnbalancedControl .csv', index=False)
+    plantDataRB = rebalanceData(plantDataB)
+    plantDataB = balanceData(plantDataRB)
+    exportData(plantDataB)
     return 
 
 main()
-    
