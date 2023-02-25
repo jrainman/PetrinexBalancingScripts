@@ -90,16 +90,13 @@ def balanceData(plantData):
     # create a new column that is the volume multiplied by the factor
     plantData["Balance"] = plantData["Volume"]*plantData["Factor"]
     
-    #for i in range(counter - 1):
-    #    plantData = plantData[plantData['NullCombinations' + str(i)] != 0]
-    
     # now we can get all the unique ReportingFacilityID and sum up the balance values
     plantIDs = plantData[["ReportingFacilityID", "Balance"]].copy()
     
     # now we can join and transform each plant ID and sum up the balance values
     plantIDs = plantIDs.join(plantIDs.groupby("ReportingFacilityID").transform(sum).add_prefix('sum'))
     
-    # drop duplicates to get final list of balanced plant ids
+    # drop balance column and duplicates to get final list of balanced plant ids
     plantIDs = plantIDs.drop(columns=['Balance']).drop_duplicates()
     
     # run a check to see if the sum of the balance values is 0 for each plant ID
@@ -173,19 +170,67 @@ def exportData(plantData):
     print("Check in the folder for the file named plantDataUnbalanced" + date + ".csv\n")
     return
 
+
+''' 
+now bob wants to be able to select a certain time frame and example june 2015 - jan 2022 and 
+then loop through all related csv
+
+specifically can we do this for one or more faclilities
+
+'''
+
+# first we need two nests loops one for the months and one for the years
+def monthYearIterator(startMonth, startYear, endMonth, endYear):
+    month = startMonth
+    year = startYear
+    while year < endYear or (year == endYear and month <= endMonth):
+        yield year, month
+        month += 1
+        if month == 13:
+            month = 1
+            year += 1
+
+
 def main():
-    # set the name path to the data
-    plantDataCSV = "ABPlantDataDec22.CSV"
-    activityCodesCSV = "activityCodeFactors.csv"
     
-    plantData = readData(plantDataCSV, activityCodesCSV)
-    plantDataPP = preprocessColumns(plantData)
-    plantDataB = balanceData(plantDataPP)
-    plantDataB.to_csv('plantDataUnbalancedControl.csv', index=False)
-    plantDataRB = rebalanceData(plantDataB)
-    plantDataB = balanceData(plantDataRB)
-    exportData(plantDataB)
+    sMonth = int(input("Enter the start month: "))
+    sYear = int(input("Enter the start year: "))
+    eMonth = int(input("Enter the end month: "))
+    eYear = int(input("Enter the end year: "))
+    csvOutputList = []
+    
+    # now we need to loop through the months and years
+    for y, m in monthYearIterator(sMonth, sYear, eMonth, eYear):
+        # then we need to create a string that is the month and year
+        if len(str(m)) == 1:
+            date = str(y) + "-0" + str(m)
+        else:
+            date = str(y) + "-" + str(m)
+        # then we need to create a string that is the name of the csv file
+        plantDataCSV = "Vol_" + date + "-AB.CSV"
+        
+        # set the name path to the data
+        activityCodesCSV = "activityCodeFactors.csv"
+        
+        plantData = readData(plantDataCSV, activityCodesCSV)
+        plantDataPP = preprocessColumns(plantData)
+        plantDataB = balanceData(plantDataPP)
+        plantDataRB = rebalanceData(plantDataB)
+        plantDataB = balanceData(plantDataRB)
+        # variable to store csv file name to add to list
+        csvOutput = "plantDataUnbalanced" + date + ".csv"
+        plantDataB.to_csv(csvOutput, index=False)
+        
+        # csv list to store all the csv file names
+        csvOutputList.append(csvOutput)
+        
+    
+    # concat all the csv files into one master csv file
+    df_concat = pd.concat([pd.read_csv(f) for f in csvOutputList ], ignore_index=True)
+    df_concat.to_csv("plantDataUnbalancedMaster.csv", index=False)
+        #exportData(plantDataB)
     return 
+
 
 main()
     
