@@ -209,32 +209,6 @@ def main():
     # subtract 2 to deal with reporting lag
     monthBound = monthBound - 2
     
-    #delete this line
-    #################################################################################
-    #################################################################################
-    # code if we want to set the bounds manually, need to update parameters in monthYearIterator
-    '''
-    sMonth = int(input("Enter the start month: "))
-    while sMonth < 1 or sMonth > 12:
-        print("Please enter a valid month")
-        sMonth = int(input("Enter the start month: "))
-        
-    sYear = int(input("Enter the start year: "))
-    while sYear < 2008 or sYear > yearBound:
-        print("Please enter a valid year")
-        sYear = int(input("Enter the start year: "))
-        
-    eMonth = int(input("Enter the end month: "))
-    while eMonth < 1 or eMonth > 12:
-        print("Please enter a valid month")
-        eMonth = int(input("Enter the end month: "))
-        
-    eYear = int(input("Enter the end year: "))
-    while eYear < 2008 or eYear > yearBound:
-        print("Please enter a valid year")
-        eYear = int(input("Enter the end year: "))
-    '''
-    
     #################################################################################
     #################################################################################
     facilityList = []
@@ -244,13 +218,11 @@ def main():
         facilityID = input("Enter the facility ID you would like to balance, when done press enter twice: ")
         
         # if the user enters '' then break out of the loop
-        '''
-        we can ignore the case of keeping all facility IDs in the csv file
-        that would make the file too big to use
-        '''
-        if facilityID in facilityList:
+        # if the user enters dupicates keep asking them to loop
+        while facilityID in facilityList:
             print("You have already entered this facility ID\n")
             facilityID = input("Enter the facility ID you would like to balance, when done press enter twice: ")
+            
         if facilityID == '':
             break
         else:
@@ -288,7 +260,6 @@ def main():
     
     print("Combining all the months into one csv file...")
     df_concat = pd.concat([pd.read_csv(f) for f in csvOutputList], ignore_index=True)
-    #df_concat['ProductionMonth'] = pd.to_datetime(df_concat['ProductionMonth'])
     x = df_concat.info()
     print(x)
     df_concat.to_csv("PlantDataBalancedMaster.csv", index=False)
