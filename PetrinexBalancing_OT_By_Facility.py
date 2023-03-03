@@ -1,12 +1,12 @@
-#created for the purpose of balancing AB plant data volumes in petrinex
+#created for the purpose of balancing BTG plant data volumes in petrinex
 
 """
 Created on Thurs Jan 19 10:30 am
 @author: joshrainbow
 
 changes include:
-- optimized code for not only balancing AB plant data but also for balancing any data in the province 
-- added in the new balancing factors to complete the list
+- optimized code for not only balancing BTG plant data but also for balancing any data in the province 
+- added in the new balancing factors to complete the list from Bob
 
 edited on Friday Feb 10 10:30 am
 @author: joshrainbow
@@ -15,12 +15,13 @@ change include:
 - tranfering the code to functions that can be called from the main program
 - if changes need to be made to the code, they can be made in the preprocessColumns function and not in the main program
 
-
 """
+
 
 import pandas as pd
 import datetime as dt
 import numpy as np
+import os
 
 
 def readData(DataCSV, ACodesCSV, facilityList):
@@ -29,6 +30,17 @@ def readData(DataCSV, ACodesCSV, facilityList):
     plant_AC = pd.read_csv(ACodesCSV)
     print("Data has been read\n")
     
+    # drop the variables that we aren't interested in
+    # some files have the heat column and some don't, so we need to check for that
+    try:
+        plantData = plantData.drop(columns=['OperatorBAID', 'ReportingFacilityProvinceState', 'ReportingFacilityIdentifier',
+                                         'SubmissionDate', 'FromToID', 'FromToIDProvinceState', 'FromToIDType', 'FromToIDIdentifier', 
+                                         'Hours', 'CCICode', 'ProrationProduct', 'ProrationFactor', 'Heat'])
+    except:
+        plantData = plantData.drop(columns=['OperatorBAID', 'ReportingFacilityProvinceState', 'ReportingFacilityIdentifier',
+                                         'SubmissionDate', 'FromToID', 'FromToIDProvinceState', 'FromToIDType', 'FromToIDIdentifier', 
+                                         'Hours', 'CCICode', 'ProrationProduct', 'ProrationFactor'])
+        
     facilityList = facilityList
     plantData = plantData[plantData["ReportingFacilityID"].isin(facilityList)]
     
@@ -96,7 +108,7 @@ def preprocessColumns(plantData):
         # create a new column and use np.select to assign values to it using our lists as arguments
         header = 'NullCombination' + str(counter)
         plantData[header] = np.select(conditions, choices, default=0)
-        print("\n" + header + " has been created\n")
+        print(f"\n{header} has been created\n")
         counter += 1
     
     nullCombinationList = []
@@ -128,7 +140,6 @@ def balanceData(plantData):
     # drop balance column and duplicates to get final list of balanced plant ids
     plantIDs = plantIDs.drop(columns=['Balance']).drop_duplicates()
     
-    
     ##############################################################################
     # run a check to see if the sum of the balance values is 0 for each plant ID #
     ##############################################################################
@@ -144,13 +155,23 @@ def balanceData(plantData):
     countBalanced = len(plantsBalanced['ReportingFacilityID'])
     
     countPlants = countUnbalanced + countBalanced
-    print("\nThere are " + str(countPlants) + " plants in total, \n")
-    # if statment to print out the number of unbalanced plants if there are any
-    if countUnbalanced == 0:
-        print("and all plants have been properly balanced.\n")
-    else:
-        print("and " + str(countUnbalanced) + " plants have not been properly balanced.\n")
-        print("Whereas " + str(countBalanced) + " plants have been properly balanced.\n")
+    # basic grammar nested loop 
+    if countPlants == 1: # if one plant it is either balanced or not
+        print(f"\nThere is {countPlants} plant in total, \n")
+        # if statment to print out the number of unbalanced plants if there are any
+        if countUnbalanced == 0:
+            print("and the plant has been properly balanced.\n")
+        else:
+            print("and the plant has not been properly balanced\n")
+            
+    else: # if there is more than one plant here is the text
+        print(f"\nThere are {countPlants} plants in total, \n")
+        # if statment to print out the number of unbalanced plants if there are any
+        if countUnbalanced == 0:
+            print("and all plants have been properly balanced.\n")
+        else:
+            print(f"and {countUnbalanced} plants have not been properly balanced.\n")
+            print(f"Whereas {countBalanced} plants have been properly balanced.\n")
     
     # merge the unbalanced plant data with the balanced plant data
     plantDataUnbalanced = pd.merge(plantData, plantsUnbalanced, on= 'ReportingFacilityID')
@@ -159,6 +180,10 @@ def balanceData(plantData):
     
     plantData = pd.concat([plantDataBalanced, plantDataUnbalanced], ignore_index=True)
     plantData = plantData.sort_values(by=['sumBalance'])
+    
+    # round the Sum and balance values
+    decimals = 2 # number of decimal places to round to
+    plantData = plantData.round({'sumBalance': decimals, 'Balance': decimals})
     
     return plantData
 
@@ -180,7 +205,15 @@ def main():
     #################################################################################
     # date bound for year set to data that we have in the current year
     yearBound = dt.datetime.now().year
+    monthBound = dt.datetime.now().month
+    # subtract 2 to deal with reporting lag
+    monthBound = monthBound - 2
     
+    #delete this line
+    #################################################################################
+    #################################################################################
+    # code if we want to set the bounds manually, need to update parameters in monthYearIterator
+    '''
     sMonth = int(input("Enter the start month: "))
     while sMonth < 1 or sMonth > 12:
         print("Please enter a valid month")
@@ -200,7 +233,7 @@ def main():
     while eYear < 2008 or eYear > yearBound:
         print("Please enter a valid year")
         eYear = int(input("Enter the end year: "))
-        
+    '''
     
     #################################################################################
     #################################################################################
@@ -211,6 +244,13 @@ def main():
         facilityID = input("Enter the facility ID you would like to balance, when done press enter twice: ")
         
         # if the user enters '' then break out of the loop
+        '''
+        we can ignore the case of keeping all facility IDs in the csv file
+        that would make the file too big to use
+        '''
+        if facilityID in facilityList:
+            print("You have already entered this facility ID\n")
+            facilityID = input("Enter the facility ID you would like to balance, when done press enter twice: ")
         if facilityID == '':
             break
         else:
@@ -221,14 +261,18 @@ def main():
     csvOutputList = []
     
     # loop to run all functions over the desired date range
-    for y, m in monthYearIterator(sMonth, sYear, eMonth, eYear):
+    #
+    # set start year and month to 1 and 2015 respectively
+    # set end year and month to the current month and year
+    for y, m in monthYearIterator(1, 2015, monthBound, yearBound):
+        
         # then we need to create a string that is the month and year
         if len(str(m)) == 1:
             date = str(y) + "-0" + str(m)
         else:
             date = str(y) + "-" + str(m)
         # then we need to create a string that is the name of the csv file
-        plantDataCSV = "Vol_" + date + "-AB.CSV"
+        plantDataCSV = f"Vol_{date}-AB.CSV"
         activityCodesCSV = "activityCodeFactors.csv"
         
         # functions in the program
@@ -244,7 +288,14 @@ def main():
     
     print("Combining all the months into one csv file...")
     df_concat = pd.concat([pd.read_csv(f) for f in csvOutputList], ignore_index=True)
+    #df_concat['ProductionMonth'] = pd.to_datetime(df_concat['ProductionMonth'])
+    x = df_concat.info()
+    print(x)
     df_concat.to_csv("PlantDataBalancedMaster.csv", index=False)
+    
+    # remove all the csv files that were created
+    for files in csvOutputList:
+        os.remove(files)
     print("The csv file has been created and saved as PlantDataBalancedMaster.csv, for the following plants you selected:\n")
     print(facilityList)
     return 
