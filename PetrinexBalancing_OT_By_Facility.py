@@ -30,7 +30,6 @@ def readData(DataCSV, ACodesCSV, facilityList):
                                               'ReportingFacilitySubTypeDesc', 'ReportingFacilityLocation', 'FacilityLegalSubdivision',
                                               'FacilitySection','FacilityTownship', 'FacilityRange', 'FacilityMeridian',
                                                'ProductID','Volume','Energy','ActivityID'])
-                                              
     plant_AC = pd.read_csv(ACodesCSV)
     
     facilityList = facilityList
@@ -208,17 +207,25 @@ def main():
         else:
             facilityList.append(facilityID)
     #################################################################################
-    # flag to check if plant is in database
-    if len(str(monthBound)) == 1:
-        date = f"{yearBound}-0{monthBound}"
-    else:
-        date = f"{yearBound}-{monthBound}"
-    plantDataCSV = f"Vol_{date}-AB.CSV"
-    plantData = readData(plantDataCSV, activityCodesCSV, facilityList)
-    facilityIDList = plantData['ReportingFacilityID']
-    if len(facilityIDList) == 0:
-        print(f"There is no data for {facilityList} in the database\n")
-        exit()
+    '''flag to check if plant name exists
+    if both checks fail we exit the program'''
+    # check if the plant is in the legacy database
+    facilityIDCSV = "facilityLegacyList.csv"
+    legacyFacilityList = pd.read_csv(facilityIDCSV)
+    legacyFacilityList = legacyFacilityList[legacyFacilityList["ReportingFacilityID"].isin(facilityList)]
+    if len(legacyFacilityList) == 0:
+        print(f"There is no data for {facilityList} in the legacy database\n")
+        # Check most recent month in petrinex database
+        if len(str(monthBound)) == 1:
+            date = f"{yearBound}-0{monthBound}"
+        else:
+            date = f"{yearBound}-{monthBound}"
+        plantDataCSV = f"Vol_{date}-AB.CSV"
+        plantData = readData(plantDataCSV, activityCodesCSV, facilityList)
+        facilityIDList = plantData['ReportingFacilityID']
+        if len(facilityIDList) == 0:
+            print(f"There is no data for {facilityList} in the {date} database\n")
+            exit()
     #################################################################################
     csvOutputList = []
     # loop to run all functions over the desired date range
