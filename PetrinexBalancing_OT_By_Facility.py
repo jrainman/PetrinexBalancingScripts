@@ -1,12 +1,12 @@
-#created for the purpose of balancing BTG plant data volumes in petrinex
+#created for the purpose of balancing data volumes in petrinex
 
 """
 Created on Thurs Jan 19 10:30 am
 @author: joshrainbow
 
 changes include:
-- optimized code for not only balancing BTG plant data but also for balancing any data in the province 
-- added in the new balancing factors to complete the list from Bob
+- optimized code for not only balancing data but also for balancing any data in the province 
+- added in the new balancing factors to complete the list
 
 edited on Friday Feb 10 10:30 am
 @author: joshrainbow

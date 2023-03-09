@@ -1,4 +1,3 @@
-##created for the purpose of balancing AB plant data volumes in petrinex
 
 """
 Created on Thurs Jan 19 10:30 am
@@ -7,6 +6,7 @@ Created on Thurs Jan 19 10:30 am
 changes include:
 - optimized code for not only balancing AB plant data but also for balancing any data in the province 
 - added in the new balancing factors to complete the list
+
 
 edited on Friday Feb 10 10:30 am
 @author: joshrainbow
