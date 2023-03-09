@@ -1,6 +1,6 @@
-#created for the purpose of balancing BTG plant data volumes in petrinex
+#created for the purpose of balancing AB facility data volumes in petrinex
 
-"""
+'''
 Created on Thurs Jan 19 10:30 am
 @author: joshrainbow
 
@@ -14,8 +14,7 @@ edited on Friday Feb 10 10:30 am
 change include:
 - tranfering the code to functions that can be called from the main program
 - if changes need to be made to the code, they can be made in the preprocessColumns function and not in the main program
-
-"""
+'''
 
 
 import pandas as pd
