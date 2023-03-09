@@ -1,12 +1,12 @@
-#created for the purpose of balancing data volumes in petrinex
+#created for the purpose of balancing BTG plant data volumes in petrinex
 
 """
 Created on Thurs Jan 19 10:30 am
 @author: joshrainbow
 
 changes include:
-- optimized code for not only balancing data but also for balancing any data in the province 
-- added in the new balancing factors to complete the list
+- optimized code for not only balancing BTG plant data but also for balancing any data in the province 
+- added in the new balancing factors to complete the list from Bob
 
 edited on Friday Feb 10 10:30 am
 @author: joshrainbow
@@ -25,14 +25,12 @@ import os
 
 def readData(DataCSV, ACodesCSV, facilityList):
     # read in the two csv files
-    plantData = pd.read_csv(DataCSV, usecols=['ProductionMonth', 'OperatorName', 'ReportingFacilityType', 
-                                              'ReportingFacilitySubType', 'ReportingFacilityID','ReportingFacilityID',
-                                              'ReportingFacilityName','ReportingFacilitySubTypeDesc', 
-                                              'ReportingFacilityLocation', 'FacilityLegalSubdivision','FacilitySection',
-                                              'FacilityTownship', 'FacilityRange', 'FacilityMeridian', 'ProductID','Volume',
-                                              'Energy','ActivityID'])
+    plantData = pd.read_csv(DataCSV, usecols=['ProductionMonth', 'OperatorName', 'ReportingFacilityID','ReportingFacilityType', 
+                                              'ReportingFacilitySubType', 'ReportingFacilityID','ReportingFacilityName',
+                                              'ReportingFacilitySubTypeDesc', 'ReportingFacilityLocation', 'FacilityLegalSubdivision',
+                                              'FacilitySection','FacilityTownship', 'FacilityRange', 'FacilityMeridian',
+                                               'ProductID','Volume','Energy','ActivityID'])
     plant_AC = pd.read_csv(ACodesCSV)
-    print("Data has been read\n")
     
     facilityList = facilityList
     plantData = plantData[plantData["ReportingFacilityID"].isin(facilityList)]
@@ -43,7 +41,6 @@ def readData(DataCSV, ACodesCSV, facilityList):
     # merge the two dataframes
     plantData = pd.merge(plantData, plant_AC, on= 'ActivityID', how = 'left')
     plantData["Factor"] = plantData["Factor"].fillna(0)
-    print("Data has been merged\n")
     return plantData
 
 def preprocessColumns(plantData):
@@ -65,7 +62,6 @@ def preprocessColumns(plantData):
     
     # converted volume to float to be able to balance out the volumes via activity
     plantData["Volume"] = pd.to_numeric(plantData["Volume"])
-    print("Volume data has been converted to float\n")
     
     #############################################################################
     # here we set to null values that aren't nessecary for the balancing process#
@@ -100,7 +96,6 @@ def preprocessColumns(plantData):
         # create a new column and use np.select to assign values to it using our lists as arguments
         header = 'NullCombination' + str(counter)
         plantData[header] = np.select(conditions, choices, default=0)
-        print(f"\n{header} has been created\n")
         counter += 1
     
     nullCombinationList = []
@@ -185,6 +180,9 @@ def monthYearIterator(startMonth, startYear, endMonth, endYear):
             year += 1
 
 def main():
+    # activity code factors path
+    activityCodesCSV = "activityCodeFactors.csv"
+    
     #################################################################################
     ############ bounds for month and year ##########################################
     #################################################################################
@@ -198,18 +196,36 @@ def main():
     facilityList = []
     while True:
         # get the facility ID from the user
-        facilityID = input("Enter the facility ID you would like to balance, when done press enter twice: ")
-        
+        facilityID = input("Enter the facility ID you would like to balance, when done press enter twice: ").upper()
         # if the user enters '' then break out of the loop
         # if the user enters dupicates keep asking them to loop
         while facilityID in facilityList:
             print("You have already entered this facility ID\n")
-            facilityID = input("Enter the facility ID you would like to balance, when done press enter twice: ")
+            facilityID = input("Enter the facility ID you would like to balance, when done press enter twice: ").upper()
         if facilityID == '':
             break
         else:
             facilityList.append(facilityID)
     #################################################################################
+    '''flag to check if plant name exists
+    if both checks fail we exit the program'''
+    # check if the plant is in the legacy database
+    facilityIDCSV = "facilityLegacyList.csv"
+    legacyFacilityList = pd.read_csv(facilityIDCSV)
+    legacyFacilityList = legacyFacilityList[legacyFacilityList["ReportingFacilityID"].isin(facilityList)]
+    if len(legacyFacilityList) == 0:
+        print(f"There is no data for {facilityList} in the legacy database\n")
+        # Check most recent month in petrinex database
+        if len(str(monthBound)) == 1:
+            date = f"{yearBound}-0{monthBound}"
+        else:
+            date = f"{yearBound}-{monthBound}"
+        plantDataCSV = f"Vol_{date}-AB.CSV"
+        plantData = readData(plantDataCSV, activityCodesCSV, facilityList)
+        facilityIDList = plantData['ReportingFacilityID']
+        if len(facilityIDList) == 0:
+            print(f"There is no data for {facilityList} in the {date} database\n")
+            exit()
     #################################################################################
     csvOutputList = []
     # loop to run all functions over the desired date range
@@ -218,34 +234,35 @@ def main():
     for y, m in monthYearIterator(1, 2015, monthBound, yearBound):
         # then we need to create a string that is the month and year
         if len(str(m)) == 1:
-            date = str(y) + "-0" + str(m)
+            date = f"{y}-0{m}"
         else:
-            date = str(y) + "-" + str(m)
+            date = f"{y}-{m}"
         # then we need to create a string that is the name of the csv file
         plantDataCSV = f"Vol_{date}-AB.CSV"
-        activityCodesCSV = "activityCodeFactors.csv"
         
         # functions in the program
         plantData = readData(plantDataCSV, activityCodesCSV, facilityList)
-        plantDataPP = preprocessColumns(plantData)
-        plantDataB = balanceData(plantDataPP)
-        csvOutput = "PlantDataBalancedMaster" + date + ".csv"
-        plantDataB.to_csv(csvOutput, index=False)
-        csvOutputList.append(csvOutput)
-        print(csvOutputList)
+        facilityIDList = plantData['ReportingFacilityID']
+        if len(facilityIDList) == 0:
+            print(f"There is no data for the month of {date} for the following plants you selected:\n")
+        else:
+            plantDataPP = preprocessColumns(plantData)
+            plantDataB = balanceData(plantDataPP)
+            csvOutput = "PlantDataBalancedMaster" + date + ".csv"
+            plantDataB.to_csv(csvOutput, index=False)
+            csvOutputList.append(csvOutput)
     
     print("Combining all the months into one csv file...")
     df_concat = pd.concat([pd.read_csv(f) for f in csvOutputList], ignore_index=True)
     x = df_concat.info()
     print(x)
-    fileNameEXP = "PlantDataBalancedMasterOG.csv"
+    fileNameEXP = "PlantDataBalancedMaster.csv"
     df_concat.to_csv(fileNameEXP, index=False)
     
     # remove all the csv files that were created
     for files in csvOutputList:
         os.remove(files)
     print(f"The csv file has been created and saved as {fileNameEXP}, for the following plants you selected:\n")
-    print(facilityList)
     return 
     
 main()
